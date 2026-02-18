@@ -1,0 +1,16 @@
+{
+  "Invitees": [
+    {"ID": 1, "Name": "Alice Uwase", "Category": "VIP", "Confirmed": true, "Attended": true},
+    {"ID": 2, "Name": "John Kayitesi", "Category": "Guest", "Confirmed": false, "Attended": false},
+    {"ID": 3, "Name": "Marie Mukamana", "Category": "Sponsor", "Confirmed": true, "Attended": false},
+    {"ID": 4, "Name": "Eric Nsengimana", "Category": "Guest", "Confirmed": true, "Attended": true},
+    {"ID": 5, "Name": "Felicite Uwimbabazi", "Category": "VIP", "Confirmed": false, "Attended": false}
+  ],
+  "Executive_KPI": [
+    {"Metric": "Total Invitees", "Value": 5},
+    {"Metric": "Confirmed Count", "Value": 3},
+    {"Metric": "Attendance Count", "Value": 2},
+    {"Metric": "Confirmation Rate", "Value": 60},
+    {"Metric": "Categories", "Value": {"VIP": 2, "Guest": 2, "Sponsor": 1}}
+  ]
+}
