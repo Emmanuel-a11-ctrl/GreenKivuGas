@@ -1,16 +1,20 @@
-
 import streamlit as st
 import pandas as pd
 import datetime
 import random
+import plotly.express as px
 from dataclasses import dataclass
 from enum import Enum
 from typing import Dict, List, Optional
 
 # -------------------------------
-# 1. Enums & Data Models
+# PAGE CONFIG
 # -------------------------------
+st.set_page_config(page_title="GreenKivuGas | CNG Intelligence", layout="wide", page_icon="🌱")
 
+# -------------------------------
+# 1. DATA MODELS (same as before)
+# -------------------------------
 class UserType(Enum):
     SCHOOL = "school"
     BUS = "bus"
@@ -26,21 +30,16 @@ class Tank:
     user_type: UserType
     owner_name: str
     last_refill_date: Optional[datetime.date] = None
-    refill_threshold_low_percent: float = 15.0
-    refill_threshold_high_percent: float = 30.0
+    refill_threshold_low: float = 15.0
+    refill_threshold_high: float = 30.0
 
-    def get_usage_percentage(self) -> float:
-        if self.capacity_kg == 0:
-            return 0.0
-        return (self.current_fill_level_kg / self.capacity_kg) * 100
+    @property
+    def fill_percent(self) -> float:
+        return (self.current_fill_level_kg / self.capacity_kg) * 100 if self.capacity_kg else 0
 
     def needs_refill(self) -> bool:
-        percent = self.get_usage_percentage()
-        if self.current_fill_level_kg <= 0:
-            return True
-        if self.refill_threshold_low_percent <= percent <= self.refill_threshold_high_percent:
-            return True
-        return False
+        p = self.fill_percent
+        return self.current_fill_level_kg <= 0 or (self.refill_threshold_low <= p <= self.refill_threshold_high)
 
 @dataclass
 class RefillOrder:
@@ -53,11 +52,10 @@ class RefillOrder:
     total_price_rwf: float
 
 # -------------------------------
-# 2. GreenKivuGas Management Service
+# 2. CORE SERVICE
 # -------------------------------
-
 class GreenKivuGasService:
-    CNG_PRICE_PER_KG_RWF = 1500.0
+    PRICE_RWF_PER_KG = 1500.0
 
     def __init__(self):
         self.tanks: Dict[str, Tank] = {}
@@ -70,24 +68,21 @@ class GreenKivuGasService:
         self.tanks[tank.tank_id] = tank
         return True
 
-    def get_tank_by_qr(self, qr_code: str) -> Optional[Tank]:
-        for tank in self.tanks.values():
-            if tank.qr_code == qr_code:
-                return tank
+    def get_tank_by_qr(self, qr: str) -> Optional[Tank]:
+        for t in self.tanks.values():
+            if t.qr_code == qr:
+                return t
         return None
 
     def update_consumption(self, tank_id: str, consumed_kg: float) -> bool:
-        tank = self.tanks.get(tank_id)
-        if not tank:
+        t = self.tanks.get(tank_id)
+        if not t or consumed_kg > t.current_fill_level_kg:
             return False
-        new_level = tank.current_fill_level_kg - consumed_kg
-        if new_level < 0:
-            return False
-        tank.current_fill_level_kg = new_level
+        t.current_fill_level_kg -= consumed_kg
         return True
 
     def check_for_alerts(self) -> List[Tank]:
-        return [tank for tank in self.tanks.values() if tank.needs_refill()]
+        return [t for t in self.tanks.values() if t.needs_refill()]
 
     def place_refill_order(self, qr_code: str, amount_kg: Optional[float] = None) -> Optional[str]:
         tank = self.get_tank_by_qr(qr_code)
@@ -98,19 +93,17 @@ class GreenKivuGasService:
             if amount_kg <= 0:
                 return None
         self.order_counter += 1
-        order_id = f"ORD-{self.order_counter:05d}"
-        total_price = amount_kg * self.CNG_PRICE_PER_KG_RWF
-        order = RefillOrder(
-            order_id=order_id,
+        oid = f"ORD-{self.order_counter:05d}"
+        self.orders[oid] = RefillOrder(
+            order_id=oid,
             tank_id=tank.tank_id,
             qr_code=qr_code,
             amount_kg=amount_kg,
             order_date=datetime.datetime.now(),
             status="pending",
-            total_price_rwf=total_price
+            total_price_rwf=amount_kg * self.PRICE_RWF_PER_KG
         )
-        self.orders[order_id] = order
-        return order_id
+        return oid
 
     def complete_refill(self, order_id: str) -> bool:
         order = self.orders.get(order_id)
@@ -119,44 +112,40 @@ class GreenKivuGasService:
         tank = self.tanks.get(order.tank_id)
         if not tank:
             return False
-        tank.current_fill_level_kg += order.amount_kg
-        if tank.current_fill_level_kg > tank.capacity_kg:
-            tank.current_fill_level_kg = tank.capacity_kg
+        tank.current_fill_level_kg = min(tank.capacity_kg, tank.current_fill_level_kg + order.amount_kg)
         tank.last_refill_date = datetime.date.today()
         order.status = "completed"
         return True
 
-    def get_all_tanks_dataframe(self) -> pd.DataFrame:
-        data = []
-        for tank in self.tanks.values():
-            data.append({
-                "ID": tank.tank_id,
-                "QR Code": tank.qr_code,
-                "Type": tank.user_type.value,
-                "Owner": tank.owner_name,
-                "Capacity (kg)": tank.capacity_kg,
-                "Current (kg)": round(tank.current_fill_level_kg, 1),
-                "Fill %": round(tank.get_usage_percentage(), 1),
-                "Needs Refill": tank.needs_refill(),
-                "Last Refill": tank.last_refill_date
+    def get_dataframe(self) -> pd.DataFrame:
+        rows = []
+        for t in self.tanks.values():
+            rows.append({
+                "ID": t.tank_id,
+                "QR": t.qr_code,
+                "Type": t.user_type.value,
+                "Owner": t.owner_name,
+                "Capacity (kg)": t.capacity_kg,
+                "Current (kg)": round(t.current_fill_level_kg, 1),
+                "Fill %": round(t.fill_percent, 1),
+                "Needs Refill": t.needs_refill(),
+                "Last Refill": t.last_refill_date
             })
-        return pd.DataFrame(data)
+        return pd.DataFrame(rows)
 
 # -------------------------------
-# 3. Generate Sample Data
+# 3. SAMPLE DATA (10 each)
 # -------------------------------
-
 def generate_sample_data(service: GreenKivuGasService):
-    def random_fill(capacity):
+    def random_fill(cap):
         r = random.random()
         if r < 0.2:
-            return capacity * random.uniform(0, 0.05)
+            return cap * random.uniform(0, 0.05)
         elif r < 0.5:
-            return capacity * random.uniform(0.15, 0.30)
+            return cap * random.uniform(0.15, 0.30)
         else:
-            return capacity * random.uniform(0.31, 0.95)
-    
-    # 10 Schools
+            return cap * random.uniform(0.31, 0.95)
+
     for i in range(1, 11):
         cap = random.choice([1000, 1200, 1500, 1800, 2000])
         service.register_tank(Tank(
@@ -167,7 +156,6 @@ def generate_sample_data(service: GreenKivuGasService):
             user_type=UserType.SCHOOL,
             owner_name=f"School {i} (Kigali)"
         ))
-    # 10 Buses
     for i in range(1, 11):
         cap = random.choice([80, 100, 120])
         service.register_tank(Tank(
@@ -176,9 +164,8 @@ def generate_sample_data(service: GreenKivuGasService):
             capacity_kg=cap,
             current_fill_level_kg=random_fill(cap),
             user_type=UserType.BUS,
-            owner_name=f"Bus {i} (Kigali City)"
+            owner_name=f"Bus {i}"
         ))
-    # 10 Trucks
     for i in range(1, 11):
         cap = random.choice([150, 200, 250, 300])
         service.register_tank(Tank(
@@ -187,9 +174,8 @@ def generate_sample_data(service: GreenKivuGasService):
             capacity_kg=cap,
             current_fill_level_kg=random_fill(cap),
             user_type=UserType.TRUCK,
-            owner_name=f"Truck {i} (Logistics Co.)"
+            owner_name=f"Truck {i}"
         ))
-    # 10 Small Cars
     for i in range(1, 11):
         cap = random.choice([15, 20, 30, 40, 50])
         service.register_tank(Tank(
@@ -198,116 +184,232 @@ def generate_sample_data(service: GreenKivuGasService):
             capacity_kg=cap,
             current_fill_level_kg=random_fill(cap),
             user_type=UserType.SMALL_CAR,
-            owner_name=f"Car {i} (Private Owner)"
+            owner_name=f"Car {i}"
         ))
 
 # -------------------------------
-# 4. Streamlit UI
+# 4. DASHBOARD (same as before)
 # -------------------------------
+def show_dashboard(df: pd.DataFrame, alerts: List[Tank]):
+    st.header("📊 Executive Dashboard")
+    
+    total_tanks = len(df)
+    total_capacity_kg = df["Capacity (kg)"].sum()
+    total_current_kg = df["Current (kg)"].sum()
+    avg_fill = (total_current_kg / total_capacity_kg) * 100 if total_capacity_kg else 0
+    refill_needed = len(alerts)
+    
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.metric("Total CNG Assets", total_tanks)
+    with col2:
+        st.metric("Total Capacity", f"{total_capacity_kg:,.0f} kg")
+    with col3:
+        st.metric("Current Inventory", f"{total_current_kg:,.0f} kg", delta=f"{avg_fill:.1f}% full")
+    with col4:
+        st.metric("🚨 Tanks Needing Refill", refill_needed, delta="15-30% rule" if refill_needed else "All good")
 
-st.set_page_config(page_title="GreenKivuGas", layout="wide")
-st.title("🌱 GreenKivuGas")
-st.subheader("CNG Management for Schools, Buses, Trucks & Small Cars")
-st.markdown("**Powered by Lake Kivu – Clean Energy for Rwanda**")
-
-if "service" not in st.session_state:
-    service = GreenKivuGasService()
-    generate_sample_data(service)
-    st.session_state.service = service
-
-service = st.session_state.service
-
-action = st.sidebar.selectbox("Choose action", ["Dashboard", "Register New Tank", "Place Refill Order", "Complete Order", "Simulate Consumption"])
-
-if action == "Dashboard":
-    st.header("📊 Current Inventory")
-    df = service.get_all_tanks_dataframe()
-    type_filter = st.multiselect("Filter by type", options=df["Type"].unique(), default=df["Type"].unique())
-    show_only_refill = st.checkbox("Show only tanks needing refill")
-    filtered_df = df[df["Type"].isin(type_filter)]
-    if show_only_refill:
-        filtered_df = filtered_df[filtered_df["Needs Refill"] == True]
-    st.dataframe(filtered_df, use_container_width=True)
-    alerts = service.check_for_alerts()
-    if alerts:
-        st.warning(f"⚠️ {len(alerts)} tank(s) need refill (15-30% rule)!")
+    col_chart1, col_chart2 = st.columns(2)
+    with col_chart1:
+        st.subheader("Fill Level Distribution")
+        fig = px.box(df, x="Type", y="Fill %", color="Type", title="Fill % per asset type")
+        st.plotly_chart(fig, use_container_width=True)
+    with col_chart2:
+        st.subheader("Refill Urgency")
+        urgency = df[df["Needs Refill"]].groupby("Type").size().reset_index(name="Count")
+        if not urgency.empty:
+            fig2 = px.bar(urgency, x="Type", y="Count", color="Type", title="Assets requiring refill")
+            st.plotly_chart(fig2, use_container_width=True)
+        else:
+            st.success("No immediate refill needs")
+    
+    st.subheader("🚨 Critical Alerts (15-30% or empty)")
+    alert_df = df[df["Needs Refill"]].sort_values("Fill %")
+    if not alert_df.empty:
+        st.dataframe(alert_df[["ID", "Owner", "Type", "Fill %", "Current (kg)", "Capacity (kg)"]], use_container_width=True)
     else:
-        st.success("All tanks are above the refill threshold ✅")
+        st.info("No tanks currently need refill")
+    
+    st.subheader("📋 Complete Inventory")
+    styled_df = df.style.background_gradient(subset=["Fill %"], cmap="YlOrRd", vmin=0, vmax=100)
+    st.dataframe(styled_df, use_container_width=True)
 
-elif action == "Register New Tank":
-    st.header("➕ Register a New CNG Tank")
-    with st.form("register_form"):
-        tank_type = st.selectbox("Type", [t.value for t in UserType])
-        owner = st.text_input("Owner Name")
-        capacity = st.number_input("Capacity (kg)", min_value=1.0, step=10.0)
-        current_level = st.number_input("Current Fill Level (kg)", min_value=0.0, max_value=capacity, step=1.0)
-        qr = st.text_input("QR Code (unique)")
-        submitted = st.form_submit_button("Register")
+# -------------------------------
+# 5. NEW TABS
+# -------------------------------
+def cng_bot_tab():
+    st.header("💬 Ask the CNG Bot")
+    st.markdown("Ask me about **conversion costs**, **fuel savings**, **financing options**, or any GreenKivuGas topic.")
+    
+    # Predefined knowledge base
+    knowledge = {
+        "conversion cost": "Conversion to CNG typically costs between **1,500,000 - 3,500,000 RWF** for a small car, **4,000,000 - 8,000,000 RWF** for a bus, and **6,000,000 - 12,000,000 RWF** for a truck. Prices include cylinders, kit, and installation.",
+        "savings": "CNG saves **40-60%** compared to petrol and **30-50%** compared to diesel. For a typical car driving 100 km/day, savings can reach **200,000 - 300,000 RWF per month**.",
+        "financing": "We offer **lease-to-own** programs with 0% down payment, **bank loans** through partner banks (interest rates as low as 12% p.a.), and **government subsidies** for schools and public transporters.",
+        "payback period": "The payback period for conversion is usually **6-18 months** depending on fuel usage.",
+        "safety": "CNG cylinders are **extremely safe** – they undergo rigorous testing (fire, crash, puncture). They are 2-3x thicker than LPG cylinders.",
+        "maintenance": "CNG engines run cleaner – oil changes are needed every 10,000 km instead of 5,000 km. Spark plugs last twice as long.",
+    }
+    
+    user_question = st.text_input("Your question:")
+    if user_question:
+        q_lower = user_question.lower()
+        response = "I'm not sure about that. Please ask about conversion costs, savings, financing, payback period, safety, or maintenance."
+        for key, answer in knowledge.items():
+            if key in q_lower:
+                response = answer
+                break
+        st.info(f"🤖 **Bot:** {response}")
+    
+    st.markdown("---")
+    st.markdown("📌 **Example questions:**")
+    st.markdown("- How much does it cost to convert a bus?")
+    st.markdown("- What are the monthly savings for a truck?")
+    st.markdown("- Do you offer financing for schools?")
+
+def savings_calculator_tab():
+    st.header("💰 Savings Calculator")
+    st.markdown("Compare your current fuel costs with CNG.")
+    
+    vehicle_type = st.selectbox("Vehicle type", ["Small Car", "Bus", "Truck", "School (cooking)"])
+    
+    if vehicle_type == "Small Car":
+        daily_km = st.number_input("Average daily distance (km)", min_value=10, value=80)
+        fuel_type = st.radio("Current fuel", ["Petrol", "Diesel"])
+        if fuel_type == "Petrol":
+            current_price_per_liter = 1350  # RWF
+            avg_km_per_liter = 12
+        else:
+            current_price_per_liter = 1300  # RWF
+            avg_km_per_liter = 15
+        cng_km_per_kg = 16  # typical for small car
+        cng_price_per_kg = 1500
+        daily_kg_needed = daily_km / cng_km_per_kg
+        daily_current_cost = (daily_km / avg_km_per_liter) * current_price_per_liter
+        daily_cng_cost = daily_kg_needed * cng_price_per_kg
+        monthly_saving = (daily_current_cost - daily_cng_cost) * 30
+        st.metric("Monthly Saving (RWF)", f"{monthly_saving:,.0f}", delta=f"{(monthly_saving/(daily_current_cost*30))*100:.0f}% reduction")
+        st.caption(f"Daily CNG consumption: {daily_kg_needed:.1f} kg | Daily current cost: {daily_current_cost:.0f} RWF → CNG cost: {daily_cng_cost:.0f} RWF")
+    
+    elif vehicle_type == "Bus":
+        daily_km = st.number_input("Average daily distance (km)", min_value=50, value=200)
+        current_diesel_price = 1300
+        avg_bus_km_per_liter = 3.5
+        cng_bus_km_per_kg = 4.5
+        daily_liters = daily_km / avg_bus_km_per_liter
+        daily_kg = daily_km / cng_bus_km_per_kg
+        daily_diesel_cost = daily_liters * current_diesel_price
+        daily_cng_cost = daily_kg * 1500
+        monthly_saving = (daily_diesel_cost - daily_cng_cost) * 30
+        st.metric("Monthly Saving (RWF)", f"{monthly_saving:,.0f}", delta="up to 40% savings")
+    
+    elif vehicle_type == "Truck":
+        daily_km = st.number_input("Average daily distance (km)", min_value=100, value=300)
+        current_diesel_price = 1300
+        avg_truck_km_per_liter = 2.5
+        cng_truck_km_per_kg = 3.2
+        daily_liters = daily_km / avg_truck_km_per_liter
+        daily_kg = daily_km / cng_truck_km_per_kg
+        daily_diesel_cost = daily_liters * current_diesel_price
+        daily_cng_cost = daily_kg * 1500
+        monthly_saving = (daily_diesel_cost - daily_cng_cost) * 30
+        st.metric("Monthly Saving (RWF)", f"{monthly_saving:,.0f}")
+    
+    else:  # School cooking
+        st.write("For school kitchens, compare **LPG** vs **CNG**.")
+        monthly_lpg_kg = st.number_input("Current monthly LPG consumption (kg)", min_value=100, value=500)
+        lpg_price_per_kg = 1800
+        cng_price_per_kg = 1500
+        monthly_lpg_cost = monthly_lpg_kg * lpg_price_per_kg
+        monthly_cng_cost = monthly_lpg_kg * cng_price_per_kg
+        monthly_saving = monthly_lpg_cost - monthly_cng_cost
+        st.metric("Monthly Saving (RWF)", f"{monthly_saving:,.0f}", delta=f"{ (monthly_saving/monthly_lpg_cost)*100:.0f}% reduction")
+        st.caption(f"LPG cost: {monthly_lpg_cost:,.0f} RWF → CNG cost: {monthly_cng_cost:,.0f} RWF")
+
+def site_visit_tab():
+    st.header("📝 Book a Site Visit")
+    st.markdown("Our engineers will assess your premises and provide a custom conversion quote.")
+    with st.form("visit_form"):
+        name = st.text_input("Full name")
+        phone = st.text_input("Phone number")
+        email = st.text_input("Email address")
+        org_type = st.selectbox("Organization type", ["School", "Bus company", "Trucking company", "Private car owner", "Other"])
+        preferred_date = st.date_input("Preferred date", min_value=datetime.date.today())
+        message = st.text_area("Additional information (optional)")
+        submitted = st.form_submit_button("Request Visit")
         if submitted:
-            try:
-                new_tank = Tank(
-                    tank_id=f"{tank_type.upper()}_{random.randint(100,999)}",
-                    qr_code=qr,
-                    capacity_kg=capacity,
-                    current_fill_level_kg=current_level,
-                    user_type=UserType(tank_type),
-                    owner_name=owner
-                )
-                if service.register_tank(new_tank):
-                    st.success(f"Tank {new_tank.tank_id} registered!")
-                else:
-                    st.error("Tank ID or QR already exists.")
-            except Exception as e:
-                st.error(f"Error: {e}")
+            st.success(f"Thank you {name}! We will contact you within 24 hours to confirm a visit on {preferred_date}.")
+            # In a real app, you would send this data to a database or email API.
 
-elif action == "Place Refill Order":
-    st.header("🛒 Place Refill Order")
-    qr_input = st.text_input("Scan QR Code")
-    if qr_input:
-        tank = service.get_tank_by_qr(qr_input)
-        if tank:
-            st.write(f"**Tank:** {tank.owner_name} ({tank.user_type.value})")
-            st.write(f"**Current:** {tank.current_fill_level_kg:.1f} / {tank.capacity_kg} kg")
-            amount_method = st.radio("Refill amount", ["Fill to full capacity", "Specify amount (kg)"])
-            if amount_method == "Fill to full capacity":
-                amount = None
-            else:
-                amount = st.number_input("Amount (kg)", min_value=1.0, max_value=tank.capacity_kg - tank.current_fill_level_kg, step=1.0)
-            if st.button("Place Order"):
-                order_id = service.place_refill_order(qr_input, amount)
-                if order_id:
-                    st.success(f"Order {order_id} placed! Go to 'Complete Order' to finalize.")
-                else:
-                    st.error("Order failed (tank full or invalid).")
-        else:
-            st.error("No tank found for that QR code.")
+# -------------------------------
+# 6. MAIN APP WITH TABS
+# -------------------------------
+def main():
+    st.title("🌱 GreenKivuGas")
+    st.caption("CNG from Lake Kivu – Smart management, conversion insights, savings & site visits")
+    
+    if "service" not in st.session_state:
+        svc = GreenKivuGasService()
+        generate_sample_data(svc)
+        st.session_state.service = svc
+    service = st.session_state.service
 
-elif action == "Complete Order":
-    st.header("✅ Complete a Refill Order")
-    pending = [o for o in service.orders.values() if o.status == "pending"]
-    if not pending:
-        st.info("No pending orders.")
-    else:
-        order_options = {f"{o.order_id} - {o.amount_kg} kg": o.order_id for o in pending}
-        selected = st.selectbox("Select order to complete", list(order_options.keys()))
-        if st.button("Complete Refill"):
-            if service.complete_refill(order_options[selected]):
-                st.success("Refill completed!")
-            else:
-                st.error("Failed to complete refill.")
+    # Create tabs
+    tab1, tab2, tab3, tab4 = st.tabs(["📊 Dashboard", "💬 CNG Bot", "💰 Savings Calculator", "📝 Book a Site Visit"])
+    
+    with tab1:
+        df = service.get_dataframe()
+        alerts = service.check_for_alerts()
+        show_dashboard(df, alerts)
+    
+    with tab2:
+        cng_bot_tab()
+    
+    with tab3:
+        savings_calculator_tab()
+    
+    with tab4:
+        site_visit_tab()
+    
+    # Sidebar for quick actions (still useful)
+    st.sidebar.markdown("## Quick Management")
+    with st.sidebar.expander("➕ Register New Tank"):
+        with st.form("quick_register"):
+            ttype = st.selectbox("Type", [t.value for t in UserType], key="qr_type")
+            owner = st.text_input("Owner", key="qr_owner")
+            cap = st.number_input("Capacity (kg)", min_value=1.0, key="qr_cap")
+            curr = st.number_input("Current (kg)", min_value=0.0, max_value=cap, key="qr_curr")
+            qrc = st.text_input("QR code", key="qr_code")
+            if st.form_submit_button("Register"):
+                try:
+                    new_tank = Tank(
+                        tank_id=f"{ttype.upper()}_{random.randint(100,999)}",
+                        qr_code=qrc,
+                        capacity_kg=cap,
+                        current_fill_level_kg=curr,
+                        user_type=UserType(ttype),
+                        owner_name=owner
+                    )
+                    if service.register_tank(new_tank):
+                        st.success(f"Registered {new_tank.tank_id}")
+                        st.rerun()
+                    else:
+                        st.error("ID/QR exists")
+                except Exception as e:
+                    st.error(str(e))
+    
+    with st.sidebar.expander("🛒 Place Refill Order"):
+        qr = st.text_input("Scan QR", key="order_qr")
+        if qr:
+            tank = service.get_tank_by_qr(qr)
+            if tank:
+                st.write(f"{tank.owner_name}: {tank.current_fill_level_kg:.1f}/{tank.capacity_kg} kg")
+                if st.button("Place order (fill to full)"):
+                    oid = service.place_refill_order(qr, None)
+                    if oid:
+                        st.success(f"Order {oid} placed. Complete in 'Complete Order' tab")
+                    else:
+                        st.error("Tank full or invalid")
 
-elif action == "Simulate Consumption":
-    st.header("⛽ Simulate Fuel Consumption")
-    df = service.get_all_tanks_dataframe()
-    tank_options = {f"{row['ID']} - {row['Owner']}": row['ID'] for _, row in df.iterrows()}
-    selected_tank = st.selectbox("Select tank", list(tank_options.keys()))
-    consumed = st.number_input("Consumed amount (kg)", min_value=0.0, step=1.0)
-    if st.button("Record Consumption"):
-        tank_id = tank_options[selected_tank]
-        if service.update_consumption(tank_id, consumed):
-            st.success("Consumption recorded.")
-            tank = service.tanks[tank_id]
-            if tank.needs_refill():
-                st.warning(f"⚠️ {tank.owner_name} now needs refill ({tank.get_usage_percentage():.1f}%)")
-        else:
-            st.error("Consumption exceeds current fill level.")
+if __name__ == "__main__":
+    main()
