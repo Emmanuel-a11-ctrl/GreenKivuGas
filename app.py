@@ -1,20 +1,15 @@
-# ===================================================================
-# GREENKIVUGAS – Complete CNG Management & Customer Engagement Platform
-# ===================================================================
 import streamlit as st
 import pandas as pd
 import datetime
 import random
-import os
 from dataclasses import dataclass
 from enum import Enum
 from typing import Dict, List, Optional
-import plotly.express as px
 
 st.set_page_config(page_title="GreenKivuGas | CNG Intelligence", layout="wide", page_icon="🌱")
 
 # -------------------------------
-# 1. DATA MODELS
+# 1. DATA MODELS (same as before)
 # -------------------------------
 class UserType(Enum):
     SCHOOL = "school"
@@ -189,7 +184,7 @@ def generate_sample_data(service: GreenKivuGasService):
         ))
 
 # -------------------------------
-# 4. CHATBOT (no RAG/Groq to keep it simple and error-free)
+# 4. CHATBOT (predefined answers)
 # -------------------------------
 predefined_answers = {
     "Is CNG safe for cooking?": "Yes, CNG is safe for cooking. It is lighter than air, disperses quickly, and has a narrow flammability range.",
@@ -248,7 +243,7 @@ def save_lead(name, phone, email, industry, notes=""):
     st.success("Thank you! A GreenKivuGas representative will contact you within 24 hours.")
 
 # -------------------------------
-# 7. UI COMPONENTS
+# 7. DASHBOARD (no plotly – uses built-in Streamlit charts)
 # -------------------------------
 def show_dashboard(df: pd.DataFrame, alerts: List[Tank]):
     st.header("📊 Executive Dashboard")
@@ -268,19 +263,17 @@ def show_dashboard(df: pd.DataFrame, alerts: List[Tank]):
     with col4:
         st.metric("🚨 Tanks Needing Refill", refill_needed, delta="15-30% rule" if refill_needed else "All good")
 
-    col_chart1, col_chart2 = st.columns(2)
-    with col_chart1:
-        st.subheader("Fill Level Distribution")
-        fig = px.box(df, x="Type", y="Fill %", color="Type", title="Fill % per asset type")
-        st.plotly_chart(fig, use_container_width=True)
-    with col_chart2:
-        st.subheader("Refill Urgency")
-        urgency = df[df["Needs Refill"]].groupby("Type").size().reset_index(name="Count")
-        if not urgency.empty:
-            fig2 = px.bar(urgency, x="Type", y="Count", color="Type", title="Assets requiring refill")
-            st.plotly_chart(fig2, use_container_width=True)
-        else:
-            st.success("No immediate refill needs")
+    # Replace plotly box plot with a simple bar chart using Streamlit
+    st.subheader("Average Fill % by Asset Type")
+    avg_fill_by_type = df.groupby("Type")["Fill %"].mean().reset_index()
+    st.bar_chart(avg_fill_by_type.set_index("Type"))
+    
+    st.subheader("Refill Urgency (Assets needing refill)")
+    urgency = df[df["Needs Refill"]].groupby("Type").size().reset_index(name="Count")
+    if not urgency.empty:
+        st.bar_chart(urgency.set_index("Type"))
+    else:
+        st.success("No immediate refill needs")
     
     st.subheader("🚨 Critical Alerts (15-30% or empty)")
     alert_df = df[df["Needs Refill"]].sort_values("Fill %")
@@ -290,9 +283,11 @@ def show_dashboard(df: pd.DataFrame, alerts: List[Tank]):
         st.info("No tanks currently need refill")
     
     st.subheader("📋 Complete Inventory")
-    styled_df = df.style.background_gradient(subset=["Fill %"], cmap="YlOrRd", vmin=0, vmax=100)
-    st.dataframe(styled_df)
+    st.dataframe(df)
 
+# -------------------------------
+# 8. UI PAGES (unchanged)
+# -------------------------------
 def register_tank_page(service):
     st.header("➕ Register New CNG Asset")
     with st.form("register_form"):
@@ -421,7 +416,7 @@ def site_visit_page():
                 st.error("Please fill in all required fields.")
 
 # -------------------------------
-# 8. MAIN APP
+# 9. MAIN APP
 # -------------------------------
 def main():
     st.title("🌱 GreenKivuGas")
