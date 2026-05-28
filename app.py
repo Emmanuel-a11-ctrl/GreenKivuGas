@@ -220,8 +220,8 @@ def calculate_savings(current_fuel, monthly_amount, unit, cng_price=15.0):
     if mmbtu == 0:
         return None, None, None
     fuel_price_per_mmbtu = {
-        "diesel": 32.0, "petrol": 28.0, "lpg": 19.5,
-        "hfo": 18.50, "wood": 6.0, "coal": 5.5
+        "diesel": 40.73, "petrol": 60.14, "lpg": 38.32,
+        "hfo": 26.42, "wood": 6.0, "coal": 5.5
     }
     current_price = fuel_price_per_mmbtu.get(current_fuel, 15.0)
     current_cost = mmbtu * current_price
