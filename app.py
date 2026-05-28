@@ -206,10 +206,10 @@ def answer_question(question: str) -> str:
 # -------------------------------
 def mmbtu_from_fuel(fuel_type, amount, unit):
     factors = {
-        ("diesel", "litres"): 0.0377,
-        ("petrol", "litres"): 0.0333,
-        ("lpg", "kg"): 0.0463,
-        ("hfo", "litres"): 0.0400,
+        ("diesel", "litres"): 0.0358,
+        ("petrol", "litres"): 0.0323,
+        ("lpg", "kg"): 0.0472,
+        ("hfo", "litres"): 0.0398,
         ("wood", "kg"): 0.0150,
         ("coal", "kg"): 0.0250,
     }
