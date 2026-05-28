@@ -252,7 +252,7 @@ def show_dashboard(df: pd.DataFrame, alerts: List[Tank]):
     total_current_kg = df["Current (kg)"].sum()
     avg_fill = (total_current_kg / total_capacity_kg) * 100 if total_capacity_kg else 0
     refill_needed = len(alerts)
-    
+
     col1, col2, col3, col4 = st.columns(4)
     with col1:
         st.metric("Total CNG Assets", total_tanks)
@@ -267,21 +267,21 @@ def show_dashboard(df: pd.DataFrame, alerts: List[Tank]):
     st.subheader("Average Fill % by Asset Type")
     avg_fill_by_type = df.groupby("Type")["Fill %"].mean().reset_index()
     st.bar_chart(avg_fill_by_type.set_index("Type"))
-    
+
     st.subheader("Refill Urgency (Assets needing refill)")
     urgency = df[df["Needs Refill"]].groupby("Type").size().reset_index(name="Count")
     if not urgency.empty:
         st.bar_chart(urgency.set_index("Type"))
     else:
         st.success("No immediate refill needs")
-    
+
     st.subheader("🚨 Critical Alerts (15-30% or empty)")
     alert_df = df[df["Needs Refill"]].sort_values("Fill %")
     if not alert_df.empty:
         st.dataframe(alert_df[["ID", "Owner", "Type", "Fill %", "Current (kg)", "Capacity (kg)"]])
     else:
         st.info("No tanks currently need refill")
-    
+
     st.subheader("📋 Complete Inventory")
     st.dataframe(df)
 
@@ -421,7 +421,7 @@ def site_visit_page():
 def main():
     st.title("🌱 GreenKivuGas")
     st.caption("CNG from Lake Kivu – Smart management, conversion insights, savings & site visits")
-    
+
     if "service" not in st.session_state:
         svc = GreenKivuGasService()
         generate_sample_data(svc)
@@ -434,7 +434,7 @@ def main():
         "🛒 Place Refill Order",
         "✅ Complete Order",
         "⛽ Simulate Consumption",
-        "💬 CNG Bot",
+        "💬 CNG safety & FAQs Bot",
         "💰 Savings Calculator",
         "📝 Book a Site Visit"
     ])
@@ -451,7 +451,7 @@ def main():
         complete_order_page(service)
     elif menu == "⛽ Simulate Consumption":
         simulate_consumption_page(service)
-    elif menu == "💬 CNG Bot":
+    elif menu == "💬 CNG safety & FAQs Bot":
         cng_bot_page()
     elif menu == "💰 Savings Calculator":
         savings_calculator_page()
