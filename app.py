@@ -188,7 +188,7 @@ def generate_sample_data(service: GreenKivuGasService):
 # -------------------------------
 predefined_answers = {
     "Is CNG safe for cooking?": "Yes, CNG is safe for cooking. It is lighter than air, disperses quickly, and has a narrow flammability range.",
-    "How much to convert my diesel truck?": "For a 340 HP truck, conversion kit costs $2,500-$4,000. Installation adds $500-$1,000.",
+    "How much to convert my diesel truck?": "For a 340 HP truck, conversion kit costs USD$1,500-$2,000. Installation adds USD $500-$1,000.",
     "What financing options do you offer?": "We provide pay-from-savings financing: zero down payment, monthly repayment = 20% of your fuel savings.",
     "How much can I save switching from LPG?": "You save about 19% on fuel cost. For a restaurant using 50 MMBTU/month, that's ~$175 monthly savings.",
     "What is the CNG price per MMBTU?": "CNG price is fixed at $15.00 - $27.00 per MMBTU.",
