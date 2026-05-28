@@ -204,29 +204,90 @@ def answer_question(question: str) -> str:
 # -------------------------------
 # 5. SAVINGS CALCULATOR
 # -------------------------------
-def mmbtu_from_fuel(fuel_type, amount, unit):
-    factors = {
-        ("diesel", "litres"): 0.0358,
-        ("petrol", "litres"): 0.0323,
-        ("lpg", "kg"): 0.0472,
-        ("hfo", "litres"): 0.0398,
-        ("wood", "kg"): 0.0150,
-        ("coal", "kg"): 0.0250,
-    }
-    return amount * factors.get((fuel_type, unit), 0)
+# IMPROVED SAVINGS CALCULATOR
+# ----------------------------
+# Converts fuel amount to MMBTU, then calculates cost savings when switching to CNG.
+# CNG prices (INR per MMBTU):
+#   - Industrial : 15
+#   - Cooking    : 18
+#   - Autofuel   : 27
 
-def calculate_savings(current_fuel, monthly_amount, unit, cng_price=15.0):
-    mmbtu = mmbtu_from_fuel(current_fuel, monthly_amount, unit)
+# Conversion factors (MMBTU per unit of fuel)
+CONVERSION_FACTORS = {
+    ("diesel", "litres"): 0.0358,
+    ("petrol", "litres"): 0.0323,
+    ("lpg", "kg"):       0.0472,
+    ("hfo", "litres"):   0.0398,
+    ("wood", "kg"):      0.0150,
+    ("coal", "kg"):      0.0250,
+}
+
+# Current fuel prices (INR per MMBTU) – typical market values
+FUEL_PRICE_PER_MMBTU = {
+    "diesel": 40.73,
+    "petrol": 60.14,
+    "lpg":    38.32,
+    "hfo":    26.42,
+    "wood":    6.0,
+    "coal":    5.5,
+}
+
+# Map each fuel to its application category and thus the correct CNG price
+FUEL_TO_CNG_PRICE = {
+    "diesel":  27,   # Autofuel
+    "petrol":  27,   # Autofuel
+    "lpg":     18,   # Cooking
+    "hfo":     15,   # Industrial
+    "wood":    15,   # Industrial
+    "coal":    15,   # Industrial
+}
+
+def mmbtu_from_fuel(fuel_type: str, amount: float, unit: str) -> float:
+    """Convert fuel amount to MMBTU using built‑in conversion factors."""
+    factor = CONVERSION_FACTORS.get((fuel_type, unit), 0.0)
+    return amount * factor
+
+def get_cng_price_for_fuel(fuel_type: str) -> float:
+    """Return the CNG price (INR/MMBTU) that matches the fuel's typical use."""
+    return FUEL_TO_CNG_PRICE.get(fuel_type, 15.0)  # default to industrial
+
+def calculate_savings(current_fuel: str, monthly_amount: float, unit: str,
+                      custom_cng_price: float = None) -> tuple:
+    """
+    Calculate costs and savings when switching from a fuel to CNG.
+
+    Parameters:
+        current_fuel (str): One of 'diesel', 'petrol', 'lpg', 'hfo', 'wood', 'coal'
+        monthly_amount (float): Quantity of fuel used per month
+        unit (str): Unit of the fuel ('litres' or 'kg')
+        custom_cng_price (float, optional): Override the automatic CNG price
+
+    Returns:
+        tuple: (current_cost, cng_cost, savings) or (None, None, None) on error
+    """
+    # 1. Convert fuel amount to MMBTU
+    mmbtu = mmbtu_from_fuel(current_fuel, amount=monthly_amount, unit=unit)
     if mmbtu == 0:
+        print(f"❌ Unsupported fuel/unit combination: {current_fuel} / {unit}")
         return None, None, None
-    fuel_price_per_mmbtu = {
-        "diesel": 40.73, "petrol": 60.14, "lpg": 38.32,
-        "hfo": 26.42, "wood": 6.0, "coal": 5.5
-    }
-    current_price = fuel_price_per_mmbtu.get(current_fuel, 15.0)
+
+    # 2. Get current fuel price per MMBTU
+    current_price = FUEL_PRICE_PER_MMBTU.get(current_fuel)
+    if current_price is None:
+        print(f"❌ No price data for fuel: {current_fuel}")
+        return None, None, None
+
+    # 3. Determine CNG price (automatic or custom)
+    if custom_cng_price is not None:
+        cng_price = custom_cng_price
+    else:
+        cng_price = get_cng_price_for_fuel(current_fuel)
+
+    # 4. Calculate costs and savings
     current_cost = mmbtu * current_price
     cng_cost = mmbtu * cng_price
     savings = current_cost - cng_cost
+
     return current_cost, cng_cost, savings
 
 # -------------------------------
