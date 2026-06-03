@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import datetime
 import random
+import os
 from dataclasses import dataclass
 from enum import Enum
 from typing import Dict, List, Optional
@@ -239,7 +240,7 @@ FUEL_TO_CNG_PRICE = {
     "lpg":     18,   # Cooking
     "hfo":     15,   # Industrial
     "wood":    15,   # Industrial
-    "coal":    15,   # Industrial
+    "coal":    15,   # Industrial,
 }
 
 def mmbtu_from_fuel(fuel_type: str, amount: float, unit: str) -> float:
@@ -294,18 +295,28 @@ def calculate_savings(current_fuel: str, monthly_amount: float, unit: str,
 # 6. LEAD CAPTURE
 # -------------------------------
 def save_lead(name, phone, email, industry, notes=""):
+    print(f"[save_lead] Name: {name}, Phone: {phone}, Email: {email}, Industry: {industry}, Notes: {notes}")
     leads_path = "/content/drive/MyDrive/GASMETH_Chatbot/online_inquiry.csv"
+    print(f"[save_lead] leads_path: {leads_path}")
     data = {
         "timestamp": datetime.datetime.now().isoformat(),
         "name": name, "phone": phone, "email": email,
         "industry": industry, "notes": notes
     }
     df_new = pd.DataFrame([data])
+    print(f"[save_lead] df_new:
+{df_new}")
     if os.path.exists(leads_path):
+        print(f"[save_lead] CSV file exists at {leads_path}")
         df_existing = pd.read_csv(leads_path)
         df_combined = pd.concat([df_existing, df_new], ignore_index=True)
+        print(f"[save_lead] df_existing:
+{df_existing}")
     else:
+        print(f"[save_lead] CSV file does not exist at {leads_path}. Creating new file.")
         df_combined = df_new
+    print(f"[save_lead] df_combined before saving:
+{df_combined}")
     df_combined.to_csv(leads_path, index=False)
     st.success("Thank you! GasMeth representative will contact you within 24 hours.")
 
@@ -313,7 +324,7 @@ def save_lead(name, phone, email, industry, notes=""):
 # -------------------------------
 # 7. DASHBOARD (no plotly – uses built-in Streamlit charts)
 # -------------------------------
-def show_dashboard(df: pd.DataFrame, alerts: List[Tank]):
+def show_dashboard(df: pd.DataFrame, alerts: List[Tank):
     st.header("📊 Executive Dashboard")
     total_tanks = len(df)
     total_capacity_kg = df["Capacity (kg)"].sum()
@@ -333,7 +344,7 @@ def show_dashboard(df: pd.DataFrame, alerts: List[Tank]):
 
     # Replace plotly box plot with a simple bar chart using Streamlit
     st.subheader("Average Fill % by Asset Type")
-    avg_fill_by_type = df.groupby("Type")["Fill %"].mean().reset_index()
+    avg_fill_by_type = df.groupby("Type")["Fill %"] .mean().reset_index()
     st.bar_chart(avg_fill_by_type.set_index("Type"))
 
     st.subheader("Refill Urgency (Assets needing refill)")
