@@ -299,6 +299,10 @@ def save_lead(name, phone, email, industry, notes=""):
     leads_path = "/content/drive/MyDrive/GASMETH_Chatbot/online_inquiry.csv"
     print(f"[save_lead] leads_path: {leads_path}")
     print(f"[save_lead] Does leads_path exist? {os.path.exists(leads_path)}")
+
+    # Create the directory if it does not exist
+    os.makedirs(os.path.dirname(leads_path), exist_ok=True)
+
     data = {
         "timestamp": datetime.datetime.now().isoformat(),
         "name": name, "phone": phone, "email": email,
