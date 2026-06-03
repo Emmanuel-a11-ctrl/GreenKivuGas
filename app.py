@@ -109,7 +109,7 @@ class GreenKivuGasService:
         tank = self.tanks.get(order.tank_id)
         if not tank:
             return False
-        tank.current_fill_level_kg = min(tank.capacity_kg, tank.current_fill_level_kg + order.amount_kg)
+        tank.current_fill_level_level_kg = min(tank.capacity_kg, tank.current_fill_level_kg + order.amount_kg)
         tank.last_refill_date = datetime.date.today()
         order.status = "completed"
         return True
@@ -298,25 +298,26 @@ def save_lead(name, phone, email, industry, notes=""):
     print(f"[save_lead] Name: {name}, Phone: {phone}, Email: {email}, Industry: {industry}, Notes: {notes}")
     leads_path = "/content/drive/MyDrive/GASMETH_Chatbot/online_inquiry.csv"
     print(f"[save_lead] leads_path: {leads_path}")
+    print(f"[save_lead] Does leads_path exist? {os.path.exists(leads_path)}")
     data = {
         "timestamp": datetime.datetime.now().isoformat(),
         "name": name, "phone": phone, "email": email,
         "industry": industry, "notes": notes
     }
     df_new = pd.DataFrame([data])
-    print(f"[save_lead] df_new:
-{df_new}")
+    print(f"[save_lead] df_new:")
+    print(df_new)
     if os.path.exists(leads_path):
         print(f"[save_lead] CSV file exists at {leads_path}")
         df_existing = pd.read_csv(leads_path)
         df_combined = pd.concat([df_existing, df_new], ignore_index=True)
-        print(f"[save_lead] df_existing:
-{df_existing}")
+        print(f"[save_lead] df_existing:")
+        print(df_existing)
     else:
         print(f"[save_lead] CSV file does not exist at {leads_path}. Creating new file.")
         df_combined = df_new
-    print(f"[save_lead] df_combined before saving:
-{df_combined}")
+    print(f"[save_lead] df_combined before saving:")
+    print(df_combined)
     df_combined.to_csv(leads_path, index=False)
     st.success("Thank you! GasMeth representative will contact you within 24 hours.")
 
@@ -324,7 +325,7 @@ def save_lead(name, phone, email, industry, notes=""):
 # -------------------------------
 # 7. DASHBOARD (no plotly – uses built-in Streamlit charts)
 # -------------------------------
-def show_dashboard(df: pd.DataFrame, alerts: List[Tank):
+def show_dashboard(df: pd.DataFrame, alerts: List[Tank]):
     st.header("📊 Executive Dashboard")
     total_tanks = len(df)
     total_capacity_kg = df["Capacity (kg)"].sum()
@@ -433,7 +434,7 @@ def complete_order_page(service):
 def simulate_consumption_page(service):
     st.header("⛽ Simulate Fuel Consumption")
     df = service.get_dataframe()
-    options = {f"{row['ID']} – {row['Owner']}": row['ID'] for _, row in df.iterrows()}
+    options = {f"{row['ID']} – {row['Owner']} خبر": row['ID'] for _, row in df.iterrows()}
     sel = st.selectbox("Select tank", list(options.keys()))
     kg = st.number_input("Consumed (kg)", min_value=0.0, step=1.0)
     if st.button("Record"):
