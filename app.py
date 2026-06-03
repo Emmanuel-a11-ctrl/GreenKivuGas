@@ -296,7 +296,7 @@ def calculate_savings(current_fuel: str, monthly_amount: float, unit: str,
 # -------------------------------
 def save_lead(name, phone, email, industry, notes=""):
     print(f"[save_lead] Name: {name}, Phone: {phone}, Email: {email}, Industry: {industry}, Notes: {notes}")
-    leads_path = "/content/drive/MyDrive/GASMETH_Chatbot/online_inquiry.csv"
+    leads_path = "/tmp/GASMETH_Chatbot/online_inquiry.csv" # Changed path to a local temporary directory
     print(f"[save_lead] leads_path: {leads_path}")
     print(f"[save_lead] Does leads_path exist? {os.path.exists(leads_path)}")
 
