@@ -294,14 +294,21 @@ def calculate_savings(current_fuel: str, monthly_amount: float, unit: str,
 # 6. LEAD CAPTURE
 # -------------------------------
 def save_lead(name, phone, email, industry, notes=""):
-    if "leads" not in st.session_state:
-        st.session_state.leads = []
-    st.session_state.leads.append({
-        "timestamp": datetime.datetime.now().isoformat(),
+    leads_path = "/content/drive/MyDrive/GASMETH_Chatbot/online_inquiry.csv"
+    data = {
+        "timestamp": datetime.now().isoformat(),
         "name": name, "phone": phone, "email": email,
         "industry": industry, "notes": notes
-    })
-    st.success("Thank you! A GreenKivuGas representative will contact you within 24 hours.")
+    }
+    df_new = pd.DataFrame([data])
+    if os.path.exists(leads_path):
+        df_existing = pd.read_csv(leads_path)
+        df_combined = pd.concat([df_existing, df_new], ignore_index=True)
+    else:
+        df_combined = df_new
+    df_combined.to_csv(leads_path, index=False)
+    st.success("Thank you! GasMeth representative will contact you within 24 hours.")
+
 
 # -------------------------------
 # 7. DASHBOARD (no plotly – uses built-in Streamlit charts)
