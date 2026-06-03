@@ -296,7 +296,7 @@ def calculate_savings(current_fuel: str, monthly_amount: float, unit: str,
 def save_lead(name, phone, email, industry, notes=""):
     leads_path = "/content/drive/MyDrive/GASMETH_Chatbot/online_inquiry.csv"
     data = {
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": datetime.datetime.now().isoformat(),
         "name": name, "phone": phone, "email": email,
         "industry": industry, "notes": notes
     }
