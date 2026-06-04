@@ -109,7 +109,7 @@ class GreenKivuGasService:
         tank = self.tanks.get(order.tank_id)
         if not tank:
             return False
-        tank.current_fill_level_level_kg = min(tank.capacity_kg, tank.current_fill_level_kg + order.amount_kg)
+        tank.current_fill_level_kg = min(tank.capacity_kg, tank.current_fill_level_kg + order.amount_kg)
         tank.last_refill_date = datetime.date.today()
         order.status = "completed"
         return True
@@ -203,17 +203,8 @@ def answer_question(question: str) -> str:
     return predefined_answers.get(question, "I'm not sure. Please ask another question or contact our team via the 'Book a Site Visit' tab.")
 
 # -------------------------------
-# 5. SAVINGS CALCULATOR
+# 5. SAVINGS CALCULATOR (unchanged)
 # -------------------------------
-# IMPROVED SAVINGS CALCULATOR
-# ----------------------------
-# Converts fuel amount to MMBTU, then calculates cost savings when switching to CNG.
-# CNG prices (INR per MMBTU):
-#   - Industrial : 15
-#   - Cooking    : 18
-#   - Autofuel   : 27
-
-# Conversion factors (MMBTU per unit of fuel)
 CONVERSION_FACTORS = {
     ("diesel", "litres"): 0.0358,
     ("petrol", "litres"): 0.0323,
@@ -223,7 +214,6 @@ CONVERSION_FACTORS = {
     ("coal", "kg"):      0.0250,
 }
 
-# Current fuel prices (INR per MMBTU) – typical market values
 FUEL_PRICE_PER_MMBTU = {
     "diesel": 40.73,
     "petrol": 60.14,
@@ -233,101 +223,126 @@ FUEL_PRICE_PER_MMBTU = {
     "coal":    5.5,
 }
 
-# Map each fuel to its application category and thus the correct CNG price
 FUEL_TO_CNG_PRICE = {
-    "diesel":  27,   # Autofuel
-    "petrol":  27,   # Autofuel
-    "lpg":     18,   # Cooking
-    "hfo":     15,   # Industrial
-    "wood":    15,   # Industrial
-    "coal":    15,   # Industrial,
+    "diesel":  27,
+    "petrol":  27,
+    "lpg":     18,
+    "hfo":     15,
+    "wood":    15,
+    "coal":    15,
 }
 
 def mmbtu_from_fuel(fuel_type: str, amount: float, unit: str) -> float:
-    """Convert fuel amount to MMBTU using built‑in conversion factors."""
     factor = CONVERSION_FACTORS.get((fuel_type, unit), 0.0)
     return amount * factor
 
 def get_cng_price_for_fuel(fuel_type: str) -> float:
-    """Return the CNG price (INR/MMBTU) that matches the fuel's typical use."""
-    return FUEL_TO_CNG_PRICE.get(fuel_type, 15.0)  # default to industrial
+    return FUEL_TO_CNG_PRICE.get(fuel_type, 15.0)
 
 def calculate_savings(current_fuel: str, monthly_amount: float, unit: str,
                       custom_cng_price: float = None) -> tuple:
-    """
-    Calculate costs and savings when switching from a fuel to CNG.
-
-    Parameters:
-        current_fuel (str): One of 'diesel', 'petrol', 'lpg', 'hfo', 'wood', 'coal'
-        monthly_amount (float): Quantity of fuel used per month
-        unit (str): Unit of the fuel ('litres' or 'kg')
-        custom_cng_price (float, optional): Override the automatic CNG price
-
-    Returns:
-        tuple: (current_cost, cng_cost, savings) or (None, None, None) on error
-    """
-    # 1. Convert fuel amount to MMBTU
     mmbtu = mmbtu_from_fuel(current_fuel, amount=monthly_amount, unit=unit)
     if mmbtu == 0:
-        print(f"❌ Unsupported fuel/unit combination: {current_fuel} / {unit}")
         return None, None, None
-
-    # 2. Get current fuel price per MMBTU
     current_price = FUEL_PRICE_PER_MMBTU.get(current_fuel)
     if current_price is None:
-        print(f"❌ No price data for fuel: {current_fuel}")
         return None, None, None
-
-    # 3. Determine CNG price (automatic or custom)
     if custom_cng_price is not None:
         cng_price = custom_cng_price
     else:
         cng_price = get_cng_price_for_fuel(current_fuel)
-
-    # 4. Calculate costs and savings
     current_cost = mmbtu * current_price
     cng_cost = mmbtu * cng_price
     savings = current_cost - cng_cost
-
     return current_cost, cng_cost, savings
+
+# -------------------------------
+# 5b. CARBON CREDITS CALCULATOR (NEW)
+# -------------------------------
+# CO₂ emission factors (kg CO₂ per MMBTU) – based on standard values
+EMISSION_FACTORS_KG_CO2_PER_MMBTU = {
+    "diesel": 73.15,
+    "petrol": 71.25,
+    "lpg":    63.1,
+    "hfo":    78.8,
+    "wood":   95.0,      # dry wood; varies with moisture
+    "coal":   94.6,      # bituminous coal
+}
+CNG_EMISSION_FACTOR = 53.1   # kg CO₂ per MMBTU (natural gas)
+
+CARBON_CREDIT_PRICE_USD_PER_TON = 50.0
+
+def calculate_carbon_credits(current_fuel: str, monthly_amount: float, unit: str) -> dict:
+    """
+    Returns a dict with monthly & annual CO₂ reduction (tons) and carbon credit value (USD).
+    """
+    mmbtu = mmbtu_from_fuel(current_fuel, amount=monthly_amount, unit=unit)
+    if mmbtu == 0:
+        return None
+    current_emissions_kg = mmbtu * EMISSION_FACTORS_KG_CO2_PER_MMBTU.get(current_fuel, 0)
+    cng_emissions_kg = mmbtu * CNG_EMISSION_FACTOR
+    reduction_kg = current_emissions_kg - cng_emissions_kg
+    if reduction_kg <= 0:
+        return None
+    reduction_tons = reduction_kg / 1000.0
+    monthly_credit_value = reduction_tons * CARBON_CREDIT_PRICE_USD_PER_TON
+    annual_credit_value = monthly_credit_value * 12
+    return {
+        "monthly_reduction_tons": reduction_tons,
+        "annual_reduction_tons": reduction_tons * 12,
+        "monthly_credit_usd": monthly_credit_value,
+        "annual_credit_usd": annual_credit_value,
+        "mmbtu": mmbtu,
+    }
+
+def carbon_credits_calculator_page():
+    st.header("🌿 Carbon Credits Calculator")
+    st.markdown("Estimate the CO₂ emissions reduction and carbon credit revenue when switching from a conventional fuel to CNG.")
+    st.caption(f"Carbon credit price = **${CARBON_CREDIT_PRICE_USD_PER_TON} / ton CO₂eq**")
+
+    col1, col2 = st.columns(2)
+    with col1:
+        fuel = st.selectbox("Current fuel", ["diesel", "petrol", "lpg", "hfo", "wood", "coal"], key="cc_fuel")
+        amount = st.number_input("Monthly consumption", min_value=0.0, step=10.0, value=100.0, key="cc_amount")
+        unit = st.selectbox("Unit", ["litres", "kg"], key="cc_unit")
+    with col2:
+        if st.button("Calculate carbon credits", key="cc_btn"):
+            if amount <= 0:
+                st.warning("Please enter a positive monthly consumption.")
+                return
+            result = calculate_carbon_credits(fuel, amount, unit)
+            if result is None:
+                st.error("Could not calculate. Check fuel/unit combination or emissions data.")
+            else:
+                st.success(f"Based on {amount} {unit} of {fuel} per month:")
+                st.metric("Monthly CO₂ reduction", f"{result['monthly_reduction_tons']:.2f} tons")
+                st.metric("Annual CO₂ reduction", f"{result['annual_reduction_tons']:.2f} tons")
+                st.metric("Monthly carbon credit value", f"${result['monthly_credit_usd']:,.2f}")
+                st.metric("Annual carbon credit value", f"${result['annual_credit_usd']:,.2f}")
+                st.info("💡 These credits can be sold on voluntary carbon markets or used for internal sustainability reporting.")
 
 # -------------------------------
 # 6. LEAD CAPTURE
 # -------------------------------
 def save_lead(name, phone, email, industry, notes=""):
-    print(f"[save_lead] Name: {name}, Phone: {phone}, Email: {email}, Industry: {industry}, Notes: {notes}")
-    leads_path = "/tmp/GASMETH_Chatbot/online_inquiry.csv" # Changed path to a local temporary directory
-    print(f"[save_lead] leads_path: {leads_path}")
-    print(f"[save_lead] Does leads_path exist? {os.path.exists(leads_path)}")
-
-    # Create the directory if it does not exist
+    leads_path = "/tmp/GASMETH_Chatbot/online_inquiry.csv"
     os.makedirs(os.path.dirname(leads_path), exist_ok=True)
-
     data = {
         "timestamp": datetime.datetime.now().isoformat(),
         "name": name, "phone": phone, "email": email,
         "industry": industry, "notes": notes
     }
     df_new = pd.DataFrame([data])
-    print(f"[save_lead] df_new:")
-    print(df_new)
     if os.path.exists(leads_path):
-        print(f"[save_lead] CSV file exists at {leads_path}")
         df_existing = pd.read_csv(leads_path)
         df_combined = pd.concat([df_existing, df_new], ignore_index=True)
-        print(f"[save_lead] df_existing:")
-        print(df_existing)
     else:
-        print(f"[save_lead] CSV file does not exist at {leads_path}. Creating new file.")
         df_combined = df_new
-    print(f"[save_lead] df_combined before saving:")
-    print(df_combined)
     df_combined.to_csv(leads_path, index=False)
     st.success("Thank you! GasMeth representative will contact you within 24 hours.")
 
-
 # -------------------------------
-# 7. DASHBOARD (no plotly – uses built-in Streamlit charts)
+# 7. DASHBOARD (no plotly)
 # -------------------------------
 def show_dashboard(df: pd.DataFrame, alerts: List[Tank]):
     st.header("📊 Executive Dashboard")
@@ -347,9 +362,8 @@ def show_dashboard(df: pd.DataFrame, alerts: List[Tank]):
     with col4:
         st.metric("🚨 Tanks Needing Refill", refill_needed, delta="15-30% rule" if refill_needed else "All good")
 
-    # Replace plotly box plot with a simple bar chart using Streamlit
     st.subheader("Average Fill % by Asset Type")
-    avg_fill_by_type = df.groupby("Type")["Fill %"] .mean().reset_index()
+    avg_fill_by_type = df.groupby("Type")["Fill %"].mean().reset_index()
     st.bar_chart(avg_fill_by_type.set_index("Type"))
 
     st.subheader("Refill Urgency (Assets needing refill)")
@@ -370,7 +384,7 @@ def show_dashboard(df: pd.DataFrame, alerts: List[Tank]):
     st.dataframe(df)
 
 # -------------------------------
-# 8. UI PAGES (unchanged)
+# 8. UI PAGES (unchanged except menu)
 # -------------------------------
 def register_tank_page(service):
     st.header("➕ Register New CNG Asset")
@@ -438,7 +452,7 @@ def complete_order_page(service):
 def simulate_consumption_page(service):
     st.header("⛽ Simulate Fuel Consumption")
     df = service.get_dataframe()
-    options = {f"{row['ID']} – {row['Owner']} خبر": row['ID'] for _, row in df.iterrows()}
+    options = {f"{row['ID']} – {row['Owner']}": row['ID'] for _, row in df.iterrows()}
     sel = st.selectbox("Select tank", list(options.keys()))
     kg = st.number_input("Consumed (kg)", min_value=0.0, step=1.0)
     if st.button("Record"):
@@ -500,7 +514,7 @@ def site_visit_page():
                 st.error("Please fill in all required fields.")
 
 # -------------------------------
-# 9. MAIN APP
+# 9. MAIN APP (updated menu)
 # -------------------------------
 def main():
     st.title("🌱 GreenKivuGas")
@@ -520,6 +534,7 @@ def main():
         "⛽ Simulate Consumption",
         "💬 CNG safety & FAQs Bot",
         "💰 Savings Calculator",
+        "🌿 Carbon Credits Calculator",   # <-- new tab
         "📝 Book a Site Visit"
     ])
 
@@ -539,6 +554,8 @@ def main():
         cng_bot_page()
     elif menu == "💰 Savings Calculator":
         savings_calculator_page()
+    elif menu == "🌿 Carbon Credits Calculator":
+        carbon_credits_calculator_page()
     elif menu == "📝 Book a Site Visit":
         site_visit_page()
 
