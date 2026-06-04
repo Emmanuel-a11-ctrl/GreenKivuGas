@@ -55,8 +55,8 @@ class GreenKivuGasService:
     PRICE_RWF_PER_KG = 1500.0
 
     def __init__(self):
-        self.tanks: Dict[str, Tank] = {}
-        self.orders: Dict[str, RefillOrder] = {}
+        self.tanks: Dict[str, Tank] = {} 
+        self.orders: Dict[str, RefillOrder] = {} 
         self.order_counter = 0
 
     def register_tank(self, tank: Tank) -> bool:
@@ -178,6 +178,7 @@ def generate_sample_data(service: GreenKivuGasService):
         service.register_tank(Tank(
             tank_id=f"CAR_{i:03d}",
             qr_code=f"QR_CAR_{i}",
+            capacity_kg=cap, # Added missing capacity_kg
             current_fill_level_kg=random_fill(cap),
             user_type=UserType.SMALL_CAR,
             owner_name=f"Car {i}"
