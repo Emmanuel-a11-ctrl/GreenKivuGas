@@ -261,14 +261,14 @@ def calculate_savings(current_fuel: str, monthly_amount: float, unit: str,
 # -------------------------------
 # CO₂ emission factors (kg CO₂ per MMBTU) – based on standard values
 EMISSION_FACTORS_KG_CO2_PER_MMBTU = {
-    "diesel": 73.15,
+    "diesel": 74.15,
     "petrol": 71.25,
     "lpg":    63.1,
     "hfo":    78.8,
-    "wood":   95.0,      # dry wood; varies with moisture
-    "coal":   94.6,      # bituminous coal
+    "wood":   112.0,      # dry wood; varies with moisture
+    "coal":   95.6,      # bituminous coal
 }
-CNG_EMISSION_FACTOR = 53.1   # kg CO₂ per MMBTU (natural gas)
+CNG_EMISSION_FACTOR = 51.0   # kg CO₂ per MMBTU (natural gas)
 
 CARBON_CREDIT_PRICE_USD_PER_TON = 50.0
 
