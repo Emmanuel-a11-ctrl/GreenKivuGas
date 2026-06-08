@@ -55,8 +55,8 @@ class GreenKivuGasService:
     PRICE_RWF_PER_KG = 1500.0
 
     def __init__(self):
-        self.tanks: Dict[str, Tank] = {} 
-        self.orders: Dict[str, RefillOrder] = {} 
+        self.tanks: Dict[str, Tank] = {}
+        self.orders: Dict[str, RefillOrder] = {}
         self.order_counter = 0
 
     def register_tank(self, tank: Tank) -> bool:
@@ -325,21 +325,34 @@ def carbon_credits_calculator_page():
 # 6. LEAD CAPTURE
 # -------------------------------
 def save_lead(name, phone, email, industry, notes=""):
-    leads_path = "/content/drive/MyDrive/GASMETH_Chatbot/online_inquiry.csv" # Changed path to Google Drive
-    os.makedirs(os.path.dirname(leads_path), exist_ok=True)
-    data = {
-        "timestamp": datetime.datetime.now().isoformat(),
-        "name": name, "phone": phone, "email": email,
-        "industry": industry, "notes": notes
-    }
-    df_new = pd.DataFrame([data])
-    if os.path.exists(leads_path):
-        df_existing = pd.read_csv(leads_path)
-        df_combined = pd.concat([df_existing, df_new], ignore_index=True)
-    else:
-        df_combined = df_new
-    df_combined.to_csv(leads_path, index=False)
-    st.success("Thank you! GasMeth representative will contact you within 24 hours.")
+
+    try:
+
+        sheet = connect_google_sheet()
+
+        timestamp = datetime.datetime.now().strftime(
+            "%Y-%m-%d %H:%M:%S"
+        )
+
+        sheet.append_row([
+            timestamp,
+            name,
+            phone,
+            email,
+            industry,
+            notes
+        ])
+
+        st.success(
+            "✅ Thank you! Your site visit request has been submitted successfully.
+            Gasmeth Representative will contact you within 24 hours"
+        )
+
+    except Exception as e:
+
+        st.error(
+            f"Failed to save request: {str(e)}"
+        )
 
 # -------------------------------
 # 7. DASHBOARD (no plotly)
