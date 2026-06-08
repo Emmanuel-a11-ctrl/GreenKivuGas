@@ -344,8 +344,8 @@ def save_lead(name, phone, email, industry, notes=""):
         ])
 
         st.success(
-            "✅ Thank you! Your site visit request has been submitted successfully.
-            Gasmeth Representative will contact you within 24 hours"
+            """✅ Thank you! Your site visit request has been submitted successfully.
+            Gasmeth Representative will contact you within 24 hours"""
         )
 
     except Exception as e:
@@ -384,7 +384,7 @@ def show_dashboard(df: pd.DataFrame, alerts: List[Tank]):
     if not urgency.empty:
         st.bar_chart(urgency.set_index("Type"))
     else:
-        st.success("No immediate refill needs")
+        st.info("No immediate refill needs")
 
     st.subheader("🚨 Critical Alerts (15-30% or empty)")
     alert_df = df[df["Needs Refill"]].sort_values("Fill %")
