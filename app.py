@@ -19,8 +19,14 @@ def connect_google_sheet():
         "https://www.googleapis.com/auth/drive"
     ]
 
+    credentials_info = st.secrets["gcp_service_account"]
+    # Ensure the private_key has actual newline characters, not escaped ones
+    if "private_key" in credentials_info and isinstance(credentials_info["private_key"], str):
+        credentials_info["private_key"] = credentials_info["private_key"].replace("\n", "
+")
+
     credentials = Credentials.from_service_account_info(
-        st.secrets["gcp_service_account"],
+        credentials_info,
         scopes=scope
     )
 
