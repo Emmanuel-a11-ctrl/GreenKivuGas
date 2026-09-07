@@ -410,6 +410,7 @@ def site_visit_page():
 
 # ------------------------------- Main App -------------------------------
 def main():
+    st.image("logo.png", width=150)
     st.title("🍃GreenKivuCNG")
     st.caption("CNG from Lake Kivu – Smart management, conversion insights, Emission reductions, Carbon credits,savings & site visits")
 
