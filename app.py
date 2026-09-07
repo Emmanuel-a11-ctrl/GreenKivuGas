@@ -281,7 +281,7 @@ def carbon_credits_calculator_page():
             if unit not in ALLOWED_UNITS.get(fuel, []):
                 st.error(f"Unit '{unit}' is not allowed for {fuel}. Choose from {ALLOWED_UNITS[fuel]}.")
                 return
-            
+
             result = calculate_carbon_credits_improved(
                 fuel, amount, unit,
                 cng_emission_factor=cng_ef,
@@ -388,7 +388,7 @@ def site_visit_page():
 
 # ------------------------------- Main App -------------------------------
 def main():
-    st.title("🌱 GreenKivuCNG")
+    st.title("🍃GreenKivuCNG")
     st.caption("CNG from Lake Kivu – Smart management, conversion insights, Emission reductions, Carbon credits,savings & site visits")
 
     # Mock service (since original data models were removed)
