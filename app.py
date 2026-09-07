@@ -9,7 +9,25 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Dict, List, Optional, NamedTuple
 
-st.set_page_config(page_title="GreenKivuCNG | CNG Intelligence", layout="wide", page_icon="🍃")
+st.set_page_config(
+    page_title="GreenKivuCNG | CNG Intelligence",
+    layout="wide",
+    page_icon="🍃",
+    # Uncomment and modify these lines to customize theme colors:
+    # initial_sidebar_state="expanded", # or "collapsed"
+    # menu_items={
+    #    'Get help': 'https://www.extremelycoolapp.com/help',
+    #    'Report a bug': "https://www.extremelycoolapp.com/bug",
+    #    'About': "# This is a header. This is an *extremely* cool app!"
+    # }
+    # theme={
+    #    "primaryColor": "#1ed760", # A Spotify green
+    #    "backgroundColor": "#121212", # Dark background
+    #    "secondaryBackgroundColor": "#181818", # Slightly lighter dark for elements
+    #    "textColor": "#FFFFFF", # White text
+    #    "font": "sans serif" # Font style
+    # }
+)
 
 # --- Custom CSS for sidebar menu styling ---
 st.markdown("""
@@ -112,7 +130,7 @@ def save_lead(name, phone, email, industry, notes=""):
             st.warning(f"⚠️ Google Sheets failed: {msg}. Falling back to CSV.")
     success2, msg2 = save_lead_to_csv(name, phone, email, industry, notes)
     if success2:
-        st.success(f"✅ Thank you! Your request has been saved locally ({msg2}), GasMeth representative will contact you within 24 hours.")
+        st.success(f"✅ Thank you! Your request has been saved locally {msg2}, GasMeth representative will contact you within 24 hours.")
     else:
         st.error(f"❌ Could not save your request. Please try again later. Error: {msg2}")
     if is_colab() and DRIVE_CSV_PATH and os.path.exists("/content/drive"):
