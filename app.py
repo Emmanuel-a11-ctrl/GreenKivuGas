@@ -15,7 +15,7 @@ st.set_page_config(page_title="GreenKivuCNG | CNG Intelligence", layout="wide", 
 st.markdown("""
 <style>
     body {
-        font-family: "Calibri", sans-serif;
+        font-family: "Garamond", sans-serif;
         font-weight: bold;
     }
     .stRadio > label {
