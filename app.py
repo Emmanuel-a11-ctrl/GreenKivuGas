@@ -384,12 +384,12 @@ def savings_calculator_page():
         if st.button("Calculate savings"):
             if amount > 0:
                 current, cng, save = calculate_savings(fuel, amount, unit)
-                if current is not None:
+                if current is None:
+                    st.error("Unit conversion not available.")
+                else:
                     st.metric("Current monthly cost", f"${current:,.2f}")
                     st.metric("CNG monthly cost", f"${cng:,.2f}")
                     st.metric("Monthly savings", f"${save:,.2f}", delta=f"{(save/current)*100:.1f}% less")
-                else:
-                    st.error("Unit conversion not available.")
             else:
                 st.warning("Enter a positive amount.")
 
@@ -410,7 +410,7 @@ def site_visit_page():
 
 # ------------------------------- Main App -------------------------------
 def main():
-    st.image("logo.png", width=150)
+    st.image("/content/logo.png", width=150)
     st.title("🍃GreenKivuCNG")
     st.caption("CNG from Lake Kivu – Smart management, conversion insights, Emission reductions, Carbon credits,savings & site visits")
 
