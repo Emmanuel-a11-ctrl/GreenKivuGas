@@ -256,7 +256,7 @@ def carbon_credits_calculator_page():
             help="Typical natural gas: 12.0 kg CO₂/MMBtu. Adjust if your CNG source is different (e.g., biogas)."
         )
         credit_price = st.number_input(
-            "Carbon credit price (USD / ton CO₂)",
+            "Carbon credit price (USD / ton CO₂eq)",
             min_value=0.0,
             value=DEFAULT_CARBON_CREDIT_PRICE_USD,
             step=5.0,
