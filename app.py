@@ -64,7 +64,7 @@ if is_colab():
 else:
     DRIVE_CSV_PATH = None
 
-# ------------------------------- Lead Capture -------------------------------
+# ------------------------------- Lead Capture -------------------
 def save_lead_to_gsheets(name, phone, email, industry, notes):
     try:
         import json
@@ -118,23 +118,23 @@ def save_lead(name, phone, email, industry, notes=""):
     if is_colab() and DRIVE_CSV_PATH and os.path.exists("/content/drive"):
         save_lead_to_csv(name, phone, email, industry, notes, path=DRIVE_CSV_PATH)
 
-# ------------------------------- Chatbot -------------------------------
+# ------------------------------- Chatbot -------------------
 predefined_answers = {
     "Is CNG safe for cooking?": "Yes, CNG is safe for cooking. It is lighter than air, disperses quickly, and has a narrow flammability range.",
     "How much to convert my diesel truck?": "For a 340 HP truck, conversion kit costs USD$1,500-$2,000. Installation adds USD $500-$1,000.",
     "What financing options do you offer?": "We provide pay-from-savings financing: zero down payment, monthly repayment = 20% of your fuel savings.",
     "How much can I save switching from LPG?": "You save about 53% on fuel cost. For a restaurant using 50 MMBTU/month, that's ~$1,016 monthly savings.",
     "What is the CNG price per MMBTU?": "CNG price is fixed at USD15.00-USD27.00 per MMBTU.",
-    "How do I schedule a site visit?": "Use the 'Book a Site Visit' tab above.",
+    "How do I schedule a site visit?": "Use the '📋 Schedule Site Survey/visit' tab above.",
     "Is CNG cleaner than wood?": "Yes, CNG produces no smoke, no particulate matter, and 30% less CO2 than wood.",
     "What is the conversion cost for a small car?": "Typically USD 800 - USD1,500.",
     "How long is the payback period?": "Usually 6-18 months depending on fuel usage."
 }
 
 def answer_question(question: str) -> str:
-    return predefined_answers.get(question, "I'm not sure. Please ask another question or contact our team via the 'Book a Site Visit' tab.")
+    return predefined_answers.get(question, "I'm not sure. Please ask another question or contact our team via the '📋 Schedule Site Survey/visit' tab.")
 
-# ------------------------------- Shared Conversion & Emission Data -------------------------------
+# ------------------------------- Shared Conversion & Emission Data -------------------
 CONVERSION_FACTORS = {
     ("diesel", "litres"): 0.0358,
     ("petrol", "litres"): 0.0323,
@@ -194,6 +194,7 @@ def get_cng_price_for_fuel(fuel_type: str) -> float:
 
 def calculate_savings(current_fuel: str, monthly_amount: float, unit: str,
                       custom_cng_price: float = None) -> tuple:
+    text_input = current_fuel
     mmbtu = mmbtu_from_fuel(current_fuel, amount=monthly_amount, unit=unit)
     if mmbtu == 0:
         return None, None, None
@@ -209,7 +210,7 @@ def calculate_savings(current_fuel: str, monthly_amount: float, unit: str,
     savings = current_cost - cng_cost
     return current_cost, cng_cost, savings
 
-# ------------------------------- IMPROVED CARBON CREDITS CALCULATOR -------------------------------
+# ------------------------------- IMPROVED CARBON CREDITS CALCULATOR -------------------
 class CarbonCreditResult(NamedTuple):
     monthly_reduction_tons: float
     annual_reduction_tons: float
@@ -243,13 +244,13 @@ def calculate_carbon_credits_improved(
     )
 
 def carbon_credits_calculator_page():
-    st.header("🌿 Carbon Credits Calculator")
+    st.header("🌿 Environmental Impact & Carbon Offsets")
     st.markdown("Estimate the CO₂ emissions reduction and carbon credit revenue when switching from a conventional fuel to CNG.")
 
     # Advanced settings expander
     with st.expander("⚙️ Advanced settings"):
         cng_ef = st.number_input(
-            "CNG emission factor (kg CO₂ / MMBtu)",
+            "CNG Emission Rating (kg CO₂ / MMBtu)",
             min_value=0.0,
             value=DEFAULT_CNG_EMISSION_FACTOR,
             step=0.5,
@@ -265,12 +266,12 @@ def carbon_credits_calculator_page():
 
     col1, col2 = st.columns(2)
     with col1:
-        fuel = st.selectbox("Current fuel", list(ALLOWED_UNITS.keys()), key="cc_fuel")
+        fuel = st.selectbox("Current Fuel Type", list(ALLOWED_UNITS.keys()), key="cc_fuel")
         # Dynamically show only allowed units for the selected fuel
         allowed_units = ALLOWED_UNITS[fuel]
         unit = st.selectbox("Unit", allowed_units, key="cc_unit")
         amount = st.number_input(
-            "Monthly consumption",
+            "Average Monthly Usage",
             min_value=0.0,
             step=10.0,
             value=100.0,
@@ -279,7 +280,7 @@ def carbon_credits_calculator_page():
     with col2:
         if st.button("Calculate carbon credits", key="cc_btn"):
             if amount <= 0:
-                st.warning("Please enter a positive monthly consumption.")
+                st.warning("Please enter a positive average monthly usage.")
                 return
             # Unit validation already handled by dynamic dropdown, but still safe
             if unit not in ALLOWED_UNITS.get(fuel, []):
@@ -298,13 +299,13 @@ def carbon_credits_calculator_page():
                 )
             else:
                 st.success(f"Based on {amount} {unit} of {fuel} per month:")
-                st.metric("Monthly CO₂ reduction", f"{result.monthly_reduction_tons:.2f} tons")
-                st.metric("Annual CO₂ reduction", f"{result.annual_reduction_tons:.2f} tons")
+                st.metric("Carbon Emissions Avoided (Monthly)", f"{result.monthly_reduction_tons:.2f} tons")
+                st.metric("Carbon Emissions Avoided (Annual)", f"{result.annual_reduction_tons:.2f} tons")
                 st.metric("Monthly carbon credit value", f"${result.monthly_credit_usd:,.2f}")
                 st.metric("Annual carbon credit value", f"${result.annual_credit_usd:,.2f}")
                 st.info("💡 These credits can be sold on voluntary carbon markets or used for internal sustainability reporting.")
 
-# ------------------------------- Dashboard, Bot, Savings, Site Visit -------------------------------
+# ------------------------------- Dashboard, Bot, Savings, Site Visit -------------------
 def show_dashboard(df: pd.DataFrame, alerts):
     st.header("📊 Compressed Natural Gas (CNG) Commercial Dashboard")
     st.subheader("🔒 Lead Management (Admin Login Required)")
@@ -324,7 +325,7 @@ def show_dashboard(df: pd.DataFrame, alerts):
                     st.error("Invalid username or password")
     if st.session_state['logged_in']:
         if os.path.exists(CSV_FALLBACK_PATH):
-            st.write("Here are the leads submitted via the 'Book a Site Visit' form:")
+            st.write("Here are the leads submitted via the '📋 Schedule Site Survey/visit' form:")
             df_leads = pd.read_csv(CSV_FALLBACK_PATH)
             st.dataframe(df_leads)
             with open(CSV_FALLBACK_PATH, "rb") as file:
@@ -342,7 +343,7 @@ def show_dashboard(df: pd.DataFrame, alerts):
             st.rerun()
 
 def cng_bot_page():
-    st.header("💬 Ask about Compressed Natural Gas (CNG)")
+    st.header("💬 CNG Safety FAQs & Technical Guidance")
     st.markdown("Ask about conversion costs, savings, financing, etc.")
     common_questions = list(predefined_answers.keys())
     selected = st.selectbox("Choose a common question:", [""] + common_questions)
@@ -359,8 +360,8 @@ def savings_calculator_page():
     st.header("💰 Savings Calculator")
     col1, col2 = st.columns(2)
     with col1:
-        fuel = st.selectbox("Current fuel", ["diesel", "petrol", "LPG", "HFO", "wood", "coal"])
-        amount = st.number_input("Monthly consumption", min_value=0.0, step=10.0, value=100.0)
+        fuel = st.selectbox("Current Fuel Type", ["diesel", "petrol", "LPG", "HFO", "wood", "coal"])
+        amount = st.number_input("Average Monthly Usage", min_value=0.0, step=10.0, value=100.0)
         unit = st.selectbox("Unit", ["litres", "kg"])
     with col2:
         if st.button("Calculate savings"):
@@ -369,14 +370,14 @@ def savings_calculator_page():
                 if current is not None:
                     st.metric("Current monthly cost", f"${current:,.2f}")
                     st.metric("CNG monthly cost", f"${cng:,.2f}")
-                    st.metric("Monthly savings", f"${save:,.2f}", delta=f"{(save/current)*100:.1f}% less")
+                    st.metric("Projected Monthly Savings", f"${save:,.2f}", delta=f"{(save/current)*100:.1f}% less")
                 else:
                     st.error("Unit conversion not available.")
             else:
                 st.warning("Enter a positive amount.")
 
 def site_visit_page():
-    st.header("📝 Book a Site Visit/Online Enquiry Form")
+    st.header("📋 Schedule Site Survey/visit")
     with st.form("visit_form"):
         name = st.text_input("Full name*")
         phone = st.text_input("Phone number*")
@@ -390,10 +391,10 @@ def site_visit_page():
             else:
                 st.error("Please fill in all required fields.")
 
-# ------------------------------- Main App -------------------------------
+# ------------------------------- Main App -------------------
 def main():
     st.title("🍃GreenKivuCNG")
-    st.caption("CNG from Lake Kivu – Smart management, conversion insights, Emission reductions, Carbon credits,savings & site visits")
+    st.caption("CNG from Lake Kivu – Smart management, conversion insights, Emission reductions, Carbon credits, savings & site visits")
 
     # Mock service (since original data models were removed)
     class MockService:
@@ -405,23 +406,23 @@ def main():
 
     menu = st.sidebar.radio("Menu", [
         "📊 Dashboard",
-        "💬 Compressed Natural Gas (CNG) safety & FAQs",
+        "💬 CNG Safety FAQs & Technical Guidance",
         "💰 Savings Calculator",
-        "🌿 Carbon Credits Calculator",
-        "📝 Book a Site Visit"
+        "🌿 Environmental Impact & Carbon Offsets",
+        "📋 Schedule Site Survey/visit"
     ])
 
     if menu == "📊 Dashboard":
         df = service.get_dataframe()
         alerts = service.check_for_alerts()
         show_dashboard(df, alerts)
-    elif menu == "💬 Compressed Natural Gas (CNG) safety & FAQs": # Fixed: Removed extra space
+    elif menu == "💬 CNG Safety FAQs & Technical Guidance":
         cng_bot_page()
     elif menu == "💰 Savings Calculator":
         savings_calculator_page()
-    elif menu == "🌿 Carbon Credits Calculator":
+    elif menu == "🌿 Environmental Impact & Carbon Offsets":
         carbon_credits_calculator_page()
-    elif menu == "📝 Book a Site Visit":
+    elif menu == "📋 Schedule Site Survey/visit":
         site_visit_page()
 
 if __name__ == "__main__":
